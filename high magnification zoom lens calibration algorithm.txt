@@ -1,0 +1,120 @@
+# Requiring calibration result at least three different low magnification levels beforehand.
+# We used chessboard-type calibration pattern which have 7*6 corners.
+# Optical tracking system is required to track the camera attached passive marker and board attached passive marker
+
+READ initial hand-eye parameters 
+(cmTc = [[r11 r12 r13 tx]
+	     [r21 r22 r23 ty]
+		 [r31 r32 r33 tz]
+		 [ 0   0   0   1]], 4*4 matrix)
+		 
+READ initial intrinsic parameters 
+(K = [[fx 0 u]
+	  [0 fy v]
+	  [0  0 1], 3*3 matrix)
+
+READ one calibration pattern image taken at high magnification level
+FIND corner points from pattern image 
+(imgPoints, 2*42 matrix)
+
+READ transformation matrix between tracker and camera attached passive marker 
+(tTcm, 4*4 matrix)
+READ transformation matrix between tracker and pattern attached passive marker
+(tTpm, 4*4 matrix)
+READ transformation matrix between pattern attached passive marker and pattern
+(pmTp, 4*4 matrix)
+
+SET chessboard coordinate based 3D corner points
+(objpoints = [[0 0 0 1]
+			  [1 0 0 1]
+			  [2 0 0 1]...
+			  [6 5 0 1]] * length between corners, 42*4 matrix)
+			  
+SET transformation matrix between camera attached passive marker and pattern
+(cmTp=(tTcm)^-1*tTpm*pmTp, 4*4 matrix)
+
+SET camera attached passive marker coordinate based 3D corner points
+(Pcms = (cmTp*(objpoints)^T)^T, 42*4 matrix)
+
+CALCULATE initial residual
+(projectedPoints = K*(cmTc)^-1*Pcms^T, 3*42 matrix
+ ProjectedPointsScailing = projectedPoints/3rd row of projectedPoints
+ projectedPointsSingleRow = concatenate first and second row of ProjectedPointsScailing matrix
+ imgPointsSingleRow = concatenate first and second row of imgPoints
+ residual = (imgPoints-ProjectedPointsScailing)^T, 84*1 matrix)
+ 
+CALCULATE initial reprojection error
+(root mean square of resiudal)
+
+INIT Jacobian matrix
+(Jacobian = Null)
+INIT damping ratio
+(dampingRatio = 0.01)
+
+for iteration = 0 to 40 do
+	for i = 0 to the row length of Pcms (in this case, 42)
+		INIT y-direction focal length using x-direction focal length
+		(fy = a1+b1*fx, a1 and b1 are obtained by linear fitting the calibration results of low magnification levels)
+		
+		MODIFY intrinsic parameters
+		(K[1, 1] = fy)
+		
+		INIT translational values of hand-eye parameters
+		(tx = a2+b2*fx
+		 ty = a3+b3*fx
+		 tz = a4+b4*fx)
+		 
+		MODIFY hand-eye parameters
+		(cmTc[0,3] = tx
+		 cmTc[1,3] = ty
+		 cmTc[2,3] = tz)
+		
+		READ 1 3D corner point
+		(Pcm = (Pcms[i])^T, 4*1 matrix)
+		
+		CALCULATE camera coordinate based 3D corner point
+		(Pc = (cmTc)^-1*Pcm, 4*1 matrix)
+		
+		CALCULATE the estimated projection point
+		(EestProPoint = K*Pc[0:3], 3*1 matrix)
+		SCAIL the estimated projection point
+		(EestProPoint =/ EestProPoint[2])
+		
+		CALCULATE Jacobian matrix using partial differentiation
+		(J11 = -∂EestProPoint[0]/∂fx
+		 J12 = -∂EestProPoint[0]/∂u
+		 J13 = -∂EestProPoint[0]/∂v
+		 J21 = -∂EestProPoint[1]/∂fx
+		 J22 = -∂EestProPoint[1]/∂u
+		 J23 = -∂EestProPoint[1]/∂v
+		 after partial differentiation, input all numerical values to symbols)
+		 
+		 INIT temporary Jacobian matrix
+		 (JacobianTemp = [[J11 J12 J13]
+						  [J21 J22 J23]])
+		 
+		if i is 0
+			Jacobian = JacobianTemp
+		else
+			Jacobian = concatenate Jacobian with JacobianTemp
+		end if
+	endfor
+
+	CALCULATE delta to update parameters
+	(delta = (Jacobian^T*Jacobian + dampingRatio*diag(Jacobian^T*Jacobian))^-1*Jacobian^T*residual, 3*1 matrix)
+
+	UPDATE the fx, u, and v
+	(fxNew = fx - delta[0]
+	 uNew = u-delta[1]
+	 vNew = v-delta[2])
+	 
+	UPDATE the intrinsic and hand-eye parameters with updated fx, u, and v
+	 
+	CALCULATE residual with updated intrinsic and hand-eye prameters
+	CALCULATE reprojection error with updated residual
+	 
+	if reprojection error is reduced, fx, u, and v are updated and the damping ratio reduces tenfold.
+	If reprojection error increases, the damping ratio increases tenfold without updating the fx, u, and v
+	
+	iteration += iteration
+endfor
