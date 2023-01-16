@@ -4,14 +4,14 @@
 
 READ initial hand-eye parameters 
 (cmTc = [[r11 r12 r13 tx]
-	     [r21 r22 r23 ty]
-		 [r31 r32 r33 tz]
-		 [ 0   0   0   1]], 4*4 matrix)
+	 [r21 r22 r23 ty]
+	 [r31 r32 r33 tz]
+	 [ 0   0   0   1]], 4*4 matrix)
 		 
 READ initial intrinsic parameters 
 (K = [[fx 0 u]
-	  [0 fy v]
-	  [0  0 1], 3*3 matrix)
+      [0 fy v]
+      [0  0 1], 3*3 matrix)
 
 READ one calibration pattern image taken at high magnification level
 FIND corner points from pattern image 
@@ -26,9 +26,9 @@ READ transformation matrix between pattern attached passive marker and pattern
 
 SET chessboard coordinate based 3D corner points
 (objpoints = [[0 0 0 1]
-			  [1 0 0 1]
-			  [2 0 0 1]...
-			  [6 5 0 1]] * length between corners, 42*4 matrix)
+	      [1 0 0 1]
+	      [2 0 0 1]...
+	      [6 5 0 1]] * length between corners, 42*4 matrix)
 			  
 SET transformation matrix between camera attached passive marker and pattern
 (cmTp=(tTcm)^-1*tTpm*pmTp, 4*4 matrix)
@@ -91,7 +91,7 @@ for iteration = 0 to 40 do
 		 
 		 INIT temporary Jacobian matrix
 		 (JacobianTemp = [[J11 J12 J13]
-						  [J21 J22 J23]])
+				  [J21 J22 J23]])
 		 
 		if i is 0
 			Jacobian = JacobianTemp
